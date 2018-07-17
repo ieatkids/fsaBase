@@ -1,0 +1,1 @@
+MD_FOLDER = 'C:\\Users\\ieatk\\Documents\\Github\\md'
