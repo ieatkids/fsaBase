@@ -7,53 +7,42 @@ import numpy as np
 import h5py
 
 
-FIELDS = {'id': 'Id', 'trade_px': 'Price', 'trade_volume': 'Volume', 'b1': 'B1', 'b2': 'B2', 'b3': 'B3', 'b4': 'B4', 'b5': 'B5', 'a1': 'A1', 'a2': 'A2', 'a3': 'A3', 'a4': 'A4', 'a5': 'A5', 'bq1': 'BQ1',
+FIELDS = ['Time', 'Price', 'Volume', 'B1', 'B2', 'B3', 'B4', 'B5', 'A1', 'A2', 'A3', 'A4', 'A5', 'BQ1', 'BQ2', 'BQ3', 'BQ4', 'BQ5', 'AQ1', 'AQ2', 'AQ3', 'AQ4', 'AQ5']
+
+TRADE_FIELDS = ['Price', 'Volume']
+
+ORDER_FIELDS = ['B1', 'B2', 'B3', 'B4', 'B5', 'A1', 'A2', 'A3', 'A4', 'A5', 'BQ1', 'BQ2', 'BQ3', 'BQ4', 'BQ5', 'AQ1', 'AQ2', 'AQ3', 'AQ4', 'AQ5']
+
+ALIAS = {'id': 'Id', 'trade_px': 'Price', 'trade_volume': 'Volume', 'b1': 'B1', 'b2': 'B2', 'b3': 'B3', 'b4': 'B4', 'b5': 'B5', 'a1': 'A1', 'a2': 'A2', 'a3': 'A3', 'a4': 'A4', 'a5': 'A5', 'bq1': 'BQ1',
           'bq2': 'BQ2', 'bq3': 'BQ3', 'bq4': 'BQ4', 'bq5': 'BQ5', 'aq1': 'AQ1', 'aq2': 'AQ2', 'aq3': 'AQ3', 'aq4': 'AQ4', 'aq5': 'AQ5', 'order_date_time': 'OrderTime', 'trades_date_time': 'TradeTime', 'update_type': 'Type'}
 
 
-def fromH5(path):
+def fromH5(path, freq=1):   # 读取h5文件并返回sampling之后的数据，freq的单位是秒
     f = h5py.File(path, 'r')
     colNames = [_.decode('utf-8') for _ in f.attrs['colnames']]
     colDict = dict(zip(colNames, map(lambda _: f['/{}'.format(_)][:], colNames)))
-    df = pd.DataFrame(colDict)
-    for col in ['order_date_time', 'trades_date_time']:
-        df[col] = df[col].apply(lambda _: _.decode('utf-8'))
+    rawDf = pd.DataFrame(colDict)
+    rawDf = rawDf.rename(columns=ALIAS)
     f.close()
-    df = df.rename(columns=FIELDS)
-    return df
-
-def sampling(df, freq=1):
-    pass
-
-
-
-def fromCsv(path, timeInterval=0.5, startTime='06:04:06'):
-    df = pd.read_csv(path, header=None)
-    df = df.iloc[:, 1:]
-    df.columns = CSV_FIELDS
-    d = df['OrderTime'].iloc[0].split(' ')[0]
-    ts0 = datetime.strptime(f'{d} {startTime}', '%Y%m%d %H:%M:%S').timestamp()
-    n = int(timedelta(days=1) / timedelta(seconds=timeInterval))
-
-    df['Time'] = df[['OrderTime', 'TradeTime']].max(axis=1).apply(
-        lambda _: datetime.strptime(_, '%Y%m%d %H:%M:%S.%f').timestamp() * 2)
-    df['Time'] = df['Time'].apply(np.ceil) / 2
-    df['Index'] = ((df['Time'] - ts0) * 2).astype(int)
-
-    df1 = df.pivot_table(index='Index', values=[f'{n}{i}' for n in [
-                         'A', 'B', 'AQ', 'BQ'] for i in range(1, 6)], aggfunc='last')
-    df1['Open'] = df.pivot_table(
-        index='Index', values='Price', aggfunc='first')['Price']
-    df1['Close'] = df.pivot_table(
-        index='Index', values='Price', aggfunc='last')['Price']
-    df1['High'] = df.pivot_table(
-        index='Index', values='Price', aggfunc='max')['Price']
-    df1['Low'] = df.pivot_table(
-        index='Index', values='Price', aggfunc='min')['Price']
-    df1 = df1.reindex(index=range(n), method='ffill')
-
-    df2 = pd.DataFrame()
-    df2['Volume'] = df.pivot_table(
-        index='Index', values='Volume', aggfunc='sum')['Volume']
-    df2 = df2.reindex(index=range(n)).fillna(0)
-    return pd.concat([df1, df2], axis=1)
+    rawDf1 = rawDf.loc[rawDf['Type']==1, ORDER_FIELDS + ['OrderTime']]   # 提出Order数据
+    rawDf2 = rawDf.loc[rawDf['Type']==2, TRADE_FIELDS + ['TradeTime']]   # 提出Trade数据
+    rawDf1['Time'] = rawDf1['OrderTime'].str.decode('utf-8')
+    rawDf2['Time'] = rawDf2['TradeTime'].str.decode('utf-8')
+    d0 = max(rawDf1['Time'].iloc[0].split(' ')[0], rawDf2['Time'].iloc[0].split(' ')[0])
+    t0 = datetime.strptime('{} 00:00:00'.format(d0), '%Y%m%d %H:%M:%S') + timedelta(seconds=freq)
+    n = timedelta(days=1) // timedelta(seconds=freq)
+    rawDf1['Time'] = rawDf1['Time'].apply(lambda _: datetime.strptime(_, '%Y%m%d %H:%M:%S.%f'))
+    rawDf1['Index'] = np.ceil((rawDf1['Time'] - t0) / timedelta(seconds=freq)).astype(int)
+    rawDf2['Time'] = rawDf2['Time'].apply(lambda _: datetime.strptime(_, '%Y%m%d %H:%M:%S.%f'))
+    rawDf2['Index'] = np.ceil((rawDf2['Time'] - t0) / timedelta(seconds=freq)).astype(int)
+    df1 = rawDf1.pivot_table(index='Index', values=ORDER_FIELDS, aggfunc='last')
+    df1 = df1.reindex(range(n)).fillna(method='ffill')    # Order数据中缺失值用前一个值填充
+    df2 = rawDf2.pivot_table(index='Index', values='Volume', aggfunc='sum')
+    df2['Price'] = rawDf2.pivot_table(index='Index', values='Price', aggfunc='last')
+    df2 = df2.reindex(range(n))
+    df2['Price'] = df2['Price'].fillna(method='ffill')  # Trade数据中的Price缺失值用前一个值填充
+    df2['Volume'] = df2['Volume'].fillna(0) # Trade数据中的Volume缺失值用0填充
+    df = pd.concat([df1, df2], axis=1)
+    df['Time'] = t0 + timedelta(seconds=freq) * np.arange(n)
+    df.index = range(n)
+    return df[FIELDS]
