@@ -56,15 +56,3 @@ def getTimeTicks(d, t, step=0.5):   # 获取当天标准化时间
     return list(map(lambda _: dt + _ * unit, range(n)))
 
 
-
-
-
-
-
-
-
-
-
-
-
-

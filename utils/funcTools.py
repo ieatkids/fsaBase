@@ -2,23 +2,6 @@ from functools import wraps
 from datetime import datetime
 
 
-def loop(func, iter):
-    @wraps(func)
-    def outer(func):
-        
-        def inter(*args, **kwargs):
-            
-
-
-
-
-
-
-
-
-
-
-
 def timer(func):    # 计时器
     @wraps(func)
     def decorator(*args, **kwargs):

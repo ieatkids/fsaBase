@@ -19,6 +19,9 @@ ALIAS = {'id': 'Id', 'trade_px': 'Price', 'trade_volume': 'Volume', 'b1': 'B1', 
           'bq2': 'BQ2', 'bq3': 'BQ3', 'bq4': 'BQ4', 'bq5': 'BQ5', 'aq1': 'AQ1', 'aq2': 'AQ2', 'aq3': 'AQ3', 'aq4': 'AQ4', 'aq5': 'AQ5', 'order_date_time': 'OrderTime', 'trades_date_time': 'TradeTime', 'update_type': 'Type'}
 
 
+_testSampledMd = pd.read_csv(Path.cwd() / Path('test', 'sampledMd.csv'))
+
+
 def getSampledMdFromRawMdH5(path, freq=1):   # 读取raw h5文件并返回sampling之后的数据，freq的单位是秒
     f = h5py.File(path, 'r')
     colNames = [_.decode('utf-8') for _ in f.attrs['colnames']]
@@ -71,7 +74,11 @@ def getSampledMd(exchange, instrument, date, freq=1):
     h5Path = getH5Path('raw', exchange, instrument, date)
     if Path(h5Path).is_file():
         df = getSampledMdFromRawMdH5(h5Path, freq=freq)
+        return df
     else:
         raise FileExistsError('h5 file does not exist.')
-        df = None
-    return df
+
+
+def getRawMd(exchange, instrument, date):
+    pass
+
