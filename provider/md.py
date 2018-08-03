@@ -2,9 +2,11 @@ from fsaConfig import MD_FOLDER
 from datetime import datetime, timedelta
 from utils import dateTools
 from itertools import product
+from pathlib2 import Path
 import pandas as pd
 import numpy as np
 import h5py
+import shutil
 
 
 FIELDS = ['Time', 'Price', 'Volume', 'B1', 'B2', 'B3', 'B4', 'B5', 'A1', 'A2', 'A3', 'A4', 'A5', 'BQ1', 'BQ2', 'BQ3', 'BQ4', 'BQ5', 'AQ1', 'AQ2', 'AQ3', 'AQ4', 'AQ5']
@@ -17,7 +19,7 @@ ALIAS = {'id': 'Id', 'trade_px': 'Price', 'trade_volume': 'Volume', 'b1': 'B1', 
           'bq2': 'BQ2', 'bq3': 'BQ3', 'bq4': 'BQ4', 'bq5': 'BQ5', 'aq1': 'AQ1', 'aq2': 'AQ2', 'aq3': 'AQ3', 'aq4': 'AQ4', 'aq5': 'AQ5', 'order_date_time': 'OrderTime', 'trades_date_time': 'TradeTime', 'update_type': 'Type'}
 
 
-def fromH5(path, freq=1):   # 读取h5文件并返回sampling之后的数据，freq的单位是秒
+def getSampledMdFromRawMdH5(path, freq=1):   # 读取raw h5文件并返回sampling之后的数据，freq的单位是秒
     f = h5py.File(path, 'r')
     colNames = [_.decode('utf-8') for _ in f.attrs['colnames']]
     colDict = dict(zip(colNames, map(lambda _: f['/{}'.format(_)][:], colNames)))
@@ -46,3 +48,30 @@ def fromH5(path, freq=1):   # 读取h5文件并返回sampling之后的数据，f
     df['Time'] = t0 + timedelta(seconds=freq) * np.arange(n)
     df.index = range(n)
     return df[FIELDS]
+
+
+def getH5Path(source, exchange, instrument, date):
+    return str(Path(MD_FOLDER, source, exchange, instrument, '{}.h5'.format(date)))
+
+
+def classifyRawMdH5(path):
+    if Path(path).is_file() and Path(path).suffix == '.h5': # 路径为h5文件，则分类存放
+        _, exchange, instrument, date = Path(path).name.split('.')[0].split('_')
+        newPath = getH5Path('raw', exchange, instrument, date)
+        Path(newPath).parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(path, newPath)
+    elif Path(path).is_dir():   # 路径为文件夹，则分类存放文件夹下所有文件
+        for path_ in Path(path).iterdir():
+            classifyRawMdH5(path_)
+    else:
+        pass
+
+
+def getSampledMd(exchange, instrument, date, freq=1):
+    h5Path = getH5Path('raw', exchange, instrument, date)
+    if Path(h5Path).is_file():
+        df = getSampledMdFromRawMdH5(h5Path, freq=freq)
+    else:
+        raise FileExistsError('h5 file does not exist.')
+        df = None
+    return df
