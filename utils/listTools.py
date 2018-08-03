@@ -1,4 +1,4 @@
-class Queue(list):  # 队列，用来控制循环
+class ListQueue(list):  # 队列，用来控制循环
     def put(self, items):
         self += items
     
@@ -13,7 +13,7 @@ class Queue(list):  # 队列，用来控制循环
         return self.size == 0
 
 
-class Stack(list):  # 栈
+class ListStack(list):  # 栈
     def put(self, item):
         self.append(item)
 
