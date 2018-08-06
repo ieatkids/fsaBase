@@ -1,8 +1,8 @@
-from provider import md
+from provider import histData
 from utils import arrayTools
 
 """
->>> df = md._testSampledMd
+>>> df = histData._testMarketDf
 """
 
 def MidPrc(df):
