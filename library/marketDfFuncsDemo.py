@@ -2,7 +2,7 @@ from provider import histData
 from utils import arrayTools
 
 """
->>> df = histData._testMarketDf
+>>> df = histData._sampleMarketDf
 """
 
 def MidPrc(df):

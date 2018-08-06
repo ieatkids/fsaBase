@@ -2,7 +2,7 @@ from fsaConfig import MD_FOLDER
 from datetime import datetime, timedelta
 from utils import dateTools
 from itertools import product
-from pathlib2 import Path
+from pathlib import Path
 import pandas as pd
 import numpy as np
 import h5py
@@ -19,20 +19,21 @@ ALIAS = {'id': 'Id', 'trade_px': 'Price', 'trade_volume': 'Volume', 'b1': 'B1', 
           'bq2': 'BQ2', 'bq3': 'BQ3', 'bq4': 'BQ4', 'bq5': 'BQ5', 'aq1': 'AQ1', 'aq2': 'AQ2', 'aq3': 'AQ3', 'aq4': 'AQ4', 'aq5': 'AQ5', 'order_date_time': 'OrderTime', 'trades_date_time': 'TradeTime', 'update_type': 'Type'}
 
 
-_testMarketDf = pd.read_csv(Path.cwd() / Path('test', 'marketDf.csv'))
+_sampleMarketDf = pd.read_csv(Path.cwd() / Path('sampleData', 'marketDf.csv'))
 
 
-def _getH5Path(source, exchange, instrument, date):   # 获取h5文件存放路径
+def _getH5Path(source, k, d):   # 获取h5文件存放路径
+    instrument, exchange = k.split('.')
     if source == 'raw':
-        return str(Path(MD_FOLDER, source, exchange, instrument, '{}.h5'.format(date)))
+        return str(Path(MD_FOLDER, source, exchange, instrument, d).with_suffix('.h5'))
     elif source == 'market':
-        return str(Path(MD_FOLDER, source, exchange, '{}.h5'.format(date)))
+        return str(Path(MD_FOLDER, source, exchange, d).with_suffix('.h5'))
     else:
         raise IOError(f"data source '{source}' does not exist.")
 
 
-def _getOrderAndTradeDfFromRawH5(exchange, instrument, date):  # 读取h5文件并返回order data和trade data
-    h5Path = _getH5Path('raw', exchange, instrument, date)
+def _getOrderAndTradeDfFromRawH5(k, d):  # 读取h5文件并返回order data和trade data
+    h5Path = _getH5Path('raw', k, d)
     f = h5py.File(h5Path, 'r')
     colNames = [_.decode('utf-8') for _ in f.attrs['colnames']]
     colDict = dict(zip(colNames, map(lambda _: f['/{}'.format(_)][:], colNames)))
@@ -50,8 +51,8 @@ def _getOrderAndTradeDfFromRawH5(exchange, instrument, date):  # 读取h5文件�
     return orderDf, tradeDf
 
 
-def _getMarketDfFromRawH5(exchange, instrument, date, freq=1):   # 从raw data获取market data，freq的单位是秒
-    orderDf, tradeDf = _getOrderAndTradeDfFromRawH5(exchange, instrument, date)
+def _getMarketDfFromRawH5(k, d, freq=1):   # 从raw data获取market data，freq的单位是秒
+    orderDf, tradeDf = _getOrderAndTradeDfFromRawH5(k, d)
     t0 = max(orderDf['Time'][0], tradeDf['Time'][0]).date()
     t0 = datetime(t0.year, t0.month, t0.day) + timedelta(seconds=freq)
     n = timedelta(days=1) // timedelta(seconds=freq)
@@ -72,8 +73,8 @@ def _getMarketDfFromRawH5(exchange, instrument, date, freq=1):   # 从raw data�
 
 def classifyRawMdH5(path):  # 分类存放raw data
     if Path(path).is_file() and Path(path).suffix == '.h5': # 路径为h5文件，则分类存放
-        _, exchange, instrument, date = Path(path).name.split('.')[0].split('_')
-        newPath = _getH5Path('raw', exchange, instrument, date)
+        _, exchange, instrument, ds = Path(path).name.split('.')[0].split('_')
+        newPath = _getH5Path('raw', k, d)
         Path(newPath).parent.mkdir(parents=True, exist_ok=True)
         shutil.move(path, newPath)
     elif Path(path).is_dir():   # 路径为文件夹，则分类存放文件夹下所有文件
@@ -83,11 +84,11 @@ def classifyRawMdH5(path):  # 分类存放raw data
         pass
 
 
-def getMarketDf(exchange, instrument, date, freq=1):    # 统一的market data接口
-    if Path(_getH5Path('market', exchange, instrument, date)).is_file(): # 预留，从转存好的数据读取
+def getMarketDf(k, d, freq=1):    # 统一的market data接口
+    if Path(_getH5Path('market', k, d)).is_file(): # 预留，从转存好的数据读取
         pass
-    elif Path(_getH5Path('raw', exchange, instrument, date)).is_file():  # 从raw数据读取
-        return _getMarketDfFromRawH5(exchange, instrument, date, freq=freq)
+    elif Path(_getH5Path('raw', k, d)).is_file():  # 从raw数据读取
+        return _getMarketDfFromRawH5(k, d, freq=freq)
     else:
         raise FileExistsError(f"Data does not exist.")
 

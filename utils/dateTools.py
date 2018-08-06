@@ -1,58 +1,55 @@
 from datetime import datetime, timedelta
-import numpy as np
 
 DATE_FORMAT = '%Y%m%d'
 
+TIME_FORMAT_S = '%Y%m%d %H:%M:%S'
 
-TIME_FORMAT = '%Y%m%d %H:%M:%S'
+TIME_FORMAT_F = '%Y%m%d %H:%M:%S.%f'
 
-
-TIME_UNIT = {'w': 'weeks', 'd': 'days', 'h': 'hours', 'm': 'minutes', 's': 'seconds', 'ms': 'milliseconds'}
-
-
-# d: datestr. e.g. '20180102'
+# 主要有三种日期格式
+# ds: dateStr. e.g. '20180102'
 # dt： datetime.datetime
-# ts: datetime.datetime.timestamp
-# td: datetime.timedelta
+# dr: dateRange. e.g. '20180101 to 20180103'
 
 
-def toDs(dt):       # str to datetime
+def dsToDt(ds: str):  # dateStr转换为datetime
+    return datetime.strptime(ds, DATE_FORMAT)
+
+
+def dtToDs(dt):  # datetime转换为dateStr
     return dt.strftime(DATE_FORMAT)
 
 
-def toDt(d: str):   # datetime to str
-    return datetime.strptime(d, DATE_FORMAT)
+def drToDt(dr):  # dateRange转换为datetime，不包含结束日期
+    ds0, ds1 = dr.split(' to ')
+    dt0 = dsToDt(ds0)
+    dt1 = dsToDt(ds1)
+    return [dt0 + timedelta(days=i) for i in range((dt1 - dt0).days)]
 
 
-def getCurDate():   # 获取当前日期
-    return toDs(datetime.now())
-    
-
-def getDateShift(d: str, shift: int):
-    return toDs(toDt(d) + timedelta(days=shift))
+def drToDs(dr):  # dateRange转换为dateStr，不包含结束日期
+    return [dtToDs(dt) for dt in drToDt(dr)]
 
 
-def getNextDate(d=None):    # 获取次日日期
-    d = d or getCurDate()
-    return getDateShift(d, 1)
+def getCurDs():  # 获取当前日期
+    return dtToDs(datetime.today())
 
 
-def getPrevDate(d=None):    # 获取前日日期
-    d = d or getCurDate()
-    return getDateShift(d, -1)
+def getDsShift(ds, offset):
+    return dtToDs(dsToDt(ds) + timedelta(days=offset))
 
 
-def getDatesCount(d0:str, d1:str, includeEndDate=False):    # 计算天数
-    n = (toDt(d1) - toDt(d0)).days
-    if includeEndDate:
-        n += 1
-    return n
+def getPrevDs(ds=None):
+    ds = ds or getCurDs()
+    return getDsShift(ds, -1)
 
 
-def getTimeTicks(d, t, step=0.5):   # 获取当天标准化时间
-    dt = datetime.strptime(f'{d} {t}', TIME_FORMAT)
-    unit = timedelta(seconds=step)
-    n = int(timedelta(days=1) / unit)
-    return list(map(lambda _: dt + _ * unit, range(n)))
+def getNextDs(ds=None):
+    ds = ds or getCurDs()
+    return getDsShift(ds, 1)
+
+
+def getDsCount(dr):
+    return len(drToDs(dr))
 
 

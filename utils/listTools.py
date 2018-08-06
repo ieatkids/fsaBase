@@ -33,7 +33,3 @@ def box(items):
         return list(items)
     else:
         return [items]
-
-
-
-
