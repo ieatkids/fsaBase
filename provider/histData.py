@@ -1,7 +1,7 @@
 from fsaConfig import MD_FOLDER
 from datetime import datetime, timedelta
 from utils import dateTools
-from library import marketDfFuncs
+from library import functions
 from itertools import product
 from pathlib import Path
 import pandas as pd
@@ -82,7 +82,7 @@ def _getMarketDfFromRawH5(k, d, freq=1):   # 从raw data获取market data，freq
     marketDf['Time'] = t0 + timedelta(seconds=freq) * np.arange(n)
     marketDf = marketDf[MARKET_FIELDS].reset_index()
     for name in ['Freq', 'Spread', 'MidPrc', 'MicPrc']: # 添加一些常用的字段
-        marketDf[name] = getattr(marketDfFuncs, name)(marketDf)
+        marketDf[name] = getattr(functions, name)(marketDf)
     return marketDf
 
 
