@@ -20,21 +20,21 @@ class Evaluator:
         """
         >>> ev = Evaluator()
         >>> df = ev.getDf(k='btcusd.bitstamp', d='20180808', v=['MicPrc|MidPrc|sub', 'NetVol', 'BookPrs'])
-        >>> print(df.head())
-           Ret_MidPrc_20  NetVol  BookPrs
-        0            NaN     0.0      NaN
-        1            NaN     0.0      NaN
-        2            NaN     0.0      NaN
-        3            NaN     0.0      NaN
-        4            NaN     0.0      NaN
-        >>> df = ev.getDf(d='20180730', kv=['btcusd.bitstamp:Price', 'btceur.bitstamp:Price'])
         >>> print(df.tail())
-               btcusd.bitstamp:Price  btceur.bitstamp:Price
-        86395                8209.73                8209.73
-        86396                8209.73                8209.73
-        86397                8209.73                8209.73
-        86398                8216.74                8216.74
-        86399                8216.74                8216.74
+               MicPrc|MidPrc|sub    NetVol   BookPrs
+        86395           0.448537  0.000000  0.934453
+        86396           0.448537  0.006206  0.934453
+        86397           0.448537  0.002412  0.934453
+        86398           1.284447  0.000000  0.930759
+        86399           1.284447  0.000000  0.930759
+        >>> df = ev.getDf(d='20180730', kv=['btcusd.bitstamp:Price|lag_1', 'btceur.bitstamp:Price|lag_1'])
+        >>> print(df.tail())
+               btcusd.bitstamp:Price|lag_1  btceur.bitstamp:Price|lag_1
+        86395                      8160.21                      8160.21
+        86396                      8160.21                      8160.21
+        86397                      8160.21                      8160.21
+        86398                      8160.21                      8160.21
+        86399                      8160.21                      8160.21
         """
         dfs = []
         if 'kv' in kws:
@@ -44,7 +44,7 @@ class Evaluator:
                     k, v = kv.split(':')
                     marketDf = self.getMarketDf(k, d)
                     if marketDf is not None:
-                        df_[kv] = incubator.getExprValue(marketDf, v)
+                        df_[kv] = incubator.AlphaTree.fromSuffixExpr(v).getValue(marketDf)
                 dfs.append(df_)
         elif listTools.isSubset(['k', 'v'], kws.keys()):
             for d in dateTools.drToD(kws['d']):
@@ -52,7 +52,7 @@ class Evaluator:
                 df_ = pd.DataFrame()
                 if marketDf is not None:
                     for v in listTools.box(kws['v']):
-                        df_[v] = incubator.getExprValue(marketDf, v)
+                        df_[v] = incubator.AlphaTree.fromSuffixExpr(v).getValue(marketDf)
                 dfs.append(df_)
         else:
             pass

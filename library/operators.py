@@ -4,30 +4,24 @@ from utils import arrayTools
 # Binary Operators
 
 def add(left, right):
-    ret = left + right
-    return ret.ravel()
+    return left + right
 
 def sub(left, right):
-    ret = left - right
-    return ret.ravel()
+    return left - right
 
 def mul(left, right):
-    ret = left * right
-    return ret.ravel()
+    return left * right
 
 def div(left, right):
-    ret = left / right
-    return ret.ravel()
+    return left / right
 
 # Unary Operators
 
 def sqrt(left):
-    ret = left ** .5
-    return ret.ravel()
+    return left ** .5
 
 def log(left):
-    ret = np.log(left)
-    return ret.ravel()
+    return np.log(left)
 
 def rollingMax(left, n):
     rw = arrayTools.rollingWindowPadding(left, n, padding=left[0])
@@ -50,13 +44,11 @@ def rollingStd(left, n):
     return ret
 
 def lag(left, n):
-    ret = left.shift(n)
-    return ret.ravel()
+    return np.concatenate([[float('nan')] * n, left[:-n]])
 
 def delta(left, n):
-    ret = left.shift(n) - left
-    return ret.ravel()
+    return lag(left, n) - left
 
 def ret(left, n):
-    ret = left.shift(n) / left - 1
-    return ret.ravel()
+    left[left==0] = float('nan')
+    return lag(left, n) / left - 1
