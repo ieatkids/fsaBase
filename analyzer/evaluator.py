@@ -27,7 +27,7 @@ class Evaluator:
         86397           0.448537  0.002412  0.934453
         86398           1.284447  0.000000  0.930759
         86399           1.284447  0.000000  0.930759
-        >>> df = ev.getDf(d='20180730', kv=['btcusd.bitstamp:Price|lag_1', 'btceur.bitstamp:Price|lag_1'])
+        >>> df = ev.getDf(d='20180810', kv=['btcusd.bitstamp:Price', 'btceur.bitstamp:Price'])
         >>> print(df.tail())
                btcusd.bitstamp:Price|lag_1  btceur.bitstamp:Price|lag_1
         86395                      8160.21                      8160.21

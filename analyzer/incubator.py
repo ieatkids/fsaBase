@@ -22,11 +22,38 @@ def _splitToken(token):
     return name, params
 
 
-class AlphaTree:
+class AlphaTree:    # Alpha的基本格式
     def __init__(self, value, left=None, right=None):
         self.value = value
         self.left = left
         self.right = right
+
+    def __repr__(self):
+        return f'AlphaTree(Suffix Expression:{self.SuffixExpr})'
+
+    def __str__(self):
+        blank = ' ' * max([len(_) for _ in self.preOrder()])
+        curLevel = [self]
+        l = []
+        i = 0
+        while curLevel:
+            margin = 2 ** (self.depth - i - 1) - 1
+            space = 2 ** (self.depth - i) - 1
+            curLine = []
+            nextLevel = []
+            for j, root in enumerate(curLevel):
+                if root is None:
+                    root = AlphaTree(blank)
+                curLine.append(f'{blank}{root.value}'[-len(blank):])
+                nextLevel.append(root.left)
+                nextLevel.append(root.right)
+            l.append(f'{blank * margin}{(blank * space).join(curLine)}')
+            if any(nextLevel):
+                curLevel = nextLevel
+                i += 1
+            else:
+                break
+        return '\n'.join(l)
 
     @property
     def depth(self):
@@ -121,9 +148,9 @@ class AlphaTree:
             l.append([n.value for n in curLevel])
             nextLevel = []
             for n in curLevel:
-                if n.left is not None:
+                if n.left:
                     nextLevel.append(n.left)
-                if n.right is not None:
+                if n.right:
                     nextLevel.append(n.right)
             curLevel = nextLevel
         return l

@@ -44,11 +44,11 @@ def rollingStd(left, n):
     return ret
 
 def lag(left, n):
-    return np.concatenate([[float('nan')] * n, left[:-n]])
+    return np.concatenate([[left[0]] * n, left[:-n]])
 
-def delta(left, n):
-    return lag(left, n) - left
+# def delta(left, n):
+#     return lag(left, n) - left
 
-def ret(left, n):
-    left[left==0] = float('nan')
-    return lag(left, n) / left - 1
+# def ret(left, n):
+#     left[left==0] = float('nan')
+#     return lag(left, n) / left - 1
