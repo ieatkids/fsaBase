@@ -11,7 +11,7 @@ import pandas as pd
 
 
 
-def _splitToken(token):
+def _splitToken(token): # 
     name = token.split('_')[0]
     params = []
     for p in token.split('_')[1:]:
@@ -25,11 +25,20 @@ def _splitToken(token):
 class AlphaTree:    # Alpha的基本格式
     def __init__(self, value, left=None, right=None):
         self.value = value
-        self.left = left
-        self.right = right
+        self.insertLeft(left)
+        self.insertRight(right)
 
+    def insertLeft(self, value):
+        self.left = AlphaTree(value) if isinstance(value, str) else value
+
+    def insertRight(self, value):
+        self.right = AlphaTree(value) if isinstance(value, str) else value
+
+    def isLeaf(self):
+        return self.left is None and self.right is None
+    
     def __repr__(self):
-        return f'AlphaTree(Suffix Expression:{self.SuffixExpr})'
+        return f'AlphaTree(Postfix Expression:{self.asPostfix})'
 
     def __str__(self):
         blank = ' ' * max([len(_) for _ in self.preOrder()])
@@ -37,16 +46,16 @@ class AlphaTree:    # Alpha的基本格式
         l = []
         i = 0
         while curLevel:
-            margin = 2 ** (self.depth - i - 1) - 1
-            space = 2 ** (self.depth - i) - 1
+            margin = 2 ** (self.height - i - 1) - 1
+            space = 2 ** (self.height - i) - 1
             curLine = []
             nextLevel = []
-            for j, root in enumerate(curLevel):
-                if root is None:
-                    root = AlphaTree(blank)
-                curLine.append(f'{blank}{root.value}'[-len(blank):])
-                nextLevel.append(root.left)
-                nextLevel.append(root.right)
+            for node in curLevel:
+                if node is None:
+                    node = AlphaTree(blank)
+                curLine.append(f'{blank}{node.value}'[-len(blank):])
+                nextLevel.append(node.left)
+                nextLevel.append(node.right)
             l.append(f'{blank * margin}{(blank * space).join(curLine)}')
             if any(nextLevel):
                 curLevel = nextLevel
@@ -56,13 +65,14 @@ class AlphaTree:    # Alpha的基本格式
         return '\n'.join(l)
 
     @property
-    def depth(self):
-        leftDepth = self.left.depth if self.left else 0
-        rightDepth = self.right.depth if self.right else 0
-        return max(leftDepth, rightDepth) + 1
+    def height(self):
+        if self.isLeaf():
+            return 1
+        else:
+            return max(self.left.height, self.right.height) + 1 
 
     @property
-    def SuffixExpr(self):
+    def asPostfix(self):
         return '|'.join(self.postOrder())
 
     @property
@@ -70,8 +80,8 @@ class AlphaTree:    # Alpha的基本格式
         pass
 
     @staticmethod
-    def fromSuffixExpr(expr):
-        tokens = expr.split('|')
+    def fromPostfixExpr(postfixExpr):
+        tokens = postfixExpr.split('|')
         stack = []
         while tokens:
             token = tokens.pop(0)
@@ -85,11 +95,11 @@ class AlphaTree:    # Alpha的基本格式
                 else:
                     left = stack.pop()
                     stack.append(AlphaTree(token, left))
-        assert len(stack) == 1, SyntaxError('Suffix expression error.')
+        assert len(stack) == 1, SyntaxError('Postfix expression error.')
         return stack[0]
 
     def getValue(self, df):
-        if self.depth == 1:
+        if self.isLeaf():
             if self.value in df.columns:
                 return df[self.value].ravel()
             else:
@@ -105,39 +115,39 @@ class AlphaTree:    # Alpha的基本格式
     def preOrder(self):
         l = []
 
-        def _preOrder(root):
-            if root is None:
+        def _preOrder(node):
+            if node is None:
                 return
             else:
-                l.append(root.value)
-                _preOrder(root.left)
-                _preOrder(root.right)
+                l.append(node.value)
+                _preOrder(node.left)
+                _preOrder(node.right)
         _preOrder(self)
         return l
 
     def inOrder(self):
         l = []
 
-        def _inOrder(root):
-            if root is None:
+        def _inOrder(node):
+            if node is None:
                 return
             else:
-                _inOrder(root.left)
-                l.append(root.value)
-                _inOrder(root.right)
+                _inOrder(node.left)
+                l.append(node.value)
+                _inOrder(node.right)
         _inOrder(self)
         return l
 
     def postOrder(self):
         l = []
 
-        def _postOrder(root):
-            if root is None:
+        def _postOrder(node):
+            if node is None:
                 return
             else:
-                _postOrder(root.left)
-                _postOrder(root.right)
-                l.append(root.value)
+                _postOrder(node.left)
+                _postOrder(node.right)
+                l.append(node.value)
         _postOrder(self)
         return l
 

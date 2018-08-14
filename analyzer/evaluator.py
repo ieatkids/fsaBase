@@ -44,15 +44,15 @@ class Evaluator:
                     k, v = kv.split(':')
                     marketDf = self.getMarketDf(k, d)
                     if marketDf is not None:
-                        df_[kv] = incubator.AlphaTree.fromSuffixExpr(v).getValue(marketDf)
+                        df_[kv] = incubator.AlphaTree.fromPostfixExpr(v).getValue(marketDf)
                 dfs.append(df_)
-        elif listTools.isSubset(['k', 'v'], kws.keys()):
+        elif 'k' in kws and 'v' in kws:
             for d in dateTools.drToD(kws['d']):
                 marketDf = self.getMarketDf(kws['k'], d)
                 df_ = pd.DataFrame()
                 if marketDf is not None:
                     for v in listTools.box(kws['v']):
-                        df_[v] = incubator.AlphaTree.fromSuffixExpr(v).getValue(marketDf)
+                        df_[v] = incubator.AlphaTree.fromPostfixExpr(v).getValue(marketDf)
                 dfs.append(df_)
         else:
             pass
@@ -60,7 +60,8 @@ class Evaluator:
         return df
 
     def addToQueue(self, **kws):
-        pass
+        if 'xkv' in kws:
+
 
     # def evalXY(self, k, d, xv, yv):
     #     df = self.getDf(k, d, [xv, yv])
