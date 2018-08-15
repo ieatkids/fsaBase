@@ -66,10 +66,9 @@ class AlphaTree:    # Alpha的基本格式
 
     @property
     def height(self):
-        if self.isLeaf():
-            return 1
-        else:
-            return max(self.left.height, self.right.height) + 1 
+        leftHeight = 0 if self.left is None else self.left.height
+        rightHeight = 0 if self.right is None else self.right.height
+        return max(leftHeight, rightHeight) + 1
 
     @property
     def asPostfix(self):
