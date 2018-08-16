@@ -63,6 +63,9 @@ class AlphaTree:    # Alpha的基本格式
             else:
                 break
         return '\n'.join(l)
+    
+    def __eq__(self, other):
+        return self.asPostfix == other.asPostfix
 
     @property
     def height(self):
