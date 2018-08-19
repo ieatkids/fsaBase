@@ -5,7 +5,7 @@ class ListQueue(list):  # 队列，用来控制循环
     def get(self):
         self.pop(0)
     
-    @staticmethod
+    @property
     def size(self):
         return self.__len__()
 
@@ -14,13 +14,13 @@ class ListQueue(list):  # 队列，用来控制循环
 
 
 class ListStack(list):  # 栈
-    def put(self, item):
+    def push(self, item):
         self.append(item)
 
-    def get(self):
-        self.pop()
+    def peek(self):
+        return self[-1]
 
-    @staticmethod
+    @property
     def size(self):
         return self.__len__()
 

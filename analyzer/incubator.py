@@ -1,7 +1,7 @@
 from library import operators, functions
 from inspect import getfullargspec
 import pandas as pd
-
+import numpy as np
 
 # COLUMNS = ['Price', 'Volume', 'BuyVolume', 'SellVolume', 'B1', 'B2', 'B3', 'B4', 'B5', 'A1',
 #           'A2', 'A3', 'A4', 'A5', 'BQ1', 'BQ2', 'BQ3', 'BQ4', 'BQ5', 'AQ1', 'AQ2', 'AQ3', 'AQ4', 'AQ5']
@@ -35,7 +35,7 @@ class AlphaTree:    # Alpha的基本格式
         self.right = AlphaTree(value) if isinstance(value, str) else value
 
     def isLeaf(self):
-        return all(self.left is None, self.right is None)
+        return all([self.left is None, self.right is None])
     
     def __repr__(self):
         return f'AlphaTree(Postfix Expression:{self.asPostfix})'
@@ -100,7 +100,7 @@ class AlphaTree:    # Alpha的基本格式
         assert len(stack) == 1, SyntaxError('Postfix expression error.')
         return stack[0]
 
-    def getValue(self, df):
+    def getArray(self, df):
         if self.isLeaf():
             if self.value in df.columns:
                 return df[self.value].ravel()
@@ -110,9 +110,22 @@ class AlphaTree:    # Alpha的基本格式
         else:
             name, params = _splitToken(self.value)
             if self.right is None:
-                return getattr(operators, name)(self.left.getValue(df), *params)
+                return getattr(operators, name)(self.left.getArray(df), *params)
             else:
-                return getattr(operators, name)(self.left.getValue(df), self.right.getValue(df), *params)
+                return getattr(operators, name)(self.left.getArray(df), self.right.getArray(df), *params)
+
+    def getProps(self, df):
+        props = {}
+        arr = self.getArray(df)
+        arr = arr[~np.isnan(arr)]
+        props['Samples'] = arr.shape[0]
+        props['Max'] = arr.max()
+        props['Min'] = arr.min()
+        props['Mean'] = arr.mean()
+        props['Std'] = arr.std()
+        props['Bot1'] = np.percentile(arr, 1)
+        props['Top1'] = np.percentile(arr, 99)
+        return props
 
     def preOrder(self):
         l = []
