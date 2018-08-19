@@ -35,7 +35,7 @@ class AlphaTree:    # Alpha的基本格式
         self.right = AlphaTree(value) if isinstance(value, str) else value
 
     def isLeaf(self):
-        return self.left is None and self.right is None
+        return all(self.left is None, self.right is None)
     
     def __repr__(self):
         return f'AlphaTree(Postfix Expression:{self.asPostfix})'

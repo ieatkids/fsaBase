@@ -1,9 +1,9 @@
-from provider import histData
-from analyzer import incubator
-from library import functions
-from fsaConfig import MD_FOLDER
-from utils import dateTools, listTools
 import pandas as pd
+from analyzer import incubator
+from fsaConfig import MD_FOLDER
+from library import functions
+from provider import histData
+from utils import dateTools, listTools
 
 
 class Evaluator:
@@ -46,7 +46,7 @@ class Evaluator:
                     if marketDf is not None:
                         df_[kv] = incubator.AlphaTree.fromPostfixExpr(v).getValue(marketDf)
                 dfs.append(df_)
-        elif 'k' in kws and 'v' in kws:
+        elif listTools.isSubset(['k', 'v'], kws.keys()):
             for d in dateTools.drToD(kws['d']):
                 marketDf = self.getMarketDf(kws['k'], d)
                 df_ = pd.DataFrame()
@@ -60,13 +60,12 @@ class Evaluator:
         return df
 
     def addToQueue(self, **kws):
-        if 'xkv' in kws:
+        pass
 
-
-    # def evalXY(self, k, d, xv, yv):
-    #     df = self.getDf(k, d, [xv, yv])
-    #     df = df.dropna(axis=0, how='any')
-    #     if df.shape[0] > 1000:  # 如果行数太少就没有参考意义
-    #         ret = {'K': k, 'D': d, 'XV': xv, 'YV': yv, 'Samples': df.shape[0]}
-    #         ret['IC'] = df.corr().loc[yv, xv]
-    #         ret['']
+    def evalXY(self, **kws):
+        df = self.getDf(k, d, [xv, yv])
+        df = df.dropna(axis=0, how='any')
+        if df.shape[0] > 1000:  # 如果行数太少就没有参考意义
+            ret = {'K': k, 'D': d, 'XV': xv, 'YV': yv, 'Samples': df.shape[0]}
+            ret['IC'] = df.corr().loc[yv, xv]
+            ret['']
