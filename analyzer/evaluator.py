@@ -131,4 +131,6 @@ class Evaluator:
         for k, v in kws.items():
             xyDf = xyDf.loc[xyDf[k.upper()]==v]
             indexCols.remove(k.upper())
+        pivotDf = xyDf.pivot_table(index=indexCols, values=valueCols)
+        pivotDf['ICStd'] = xyDf.pivot_table(index=indexCols, values=['PearsonIC'])
         return xyDf.pivot_table(index=indexCols, values=valueCols)
