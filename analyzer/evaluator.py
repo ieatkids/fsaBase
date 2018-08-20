@@ -10,11 +10,6 @@ from library import functions
 from provider import histData
 from utils import dateTools, listTools, funcTools
 
-KEY_COLS = ['Hash', 'D', 'XK', 'XV', 'YK', 'YV']
-
-VALUE_COLS = ['PearsonIC', 'XMax', 'XMin', 'XMean', 'XStd', 'XPct1', 'XPct5', 'XPct10', 'XPct90',
-              'XPct95', 'XPct99', 'YMeanPct1', 'YMeanPct5', 'YMeanPct10', 'YMeanPct90', 'YMeanPct95', 'YMeanPct99']
-
 
 class Evaluator:
     def __init__(self, freq=1):
@@ -92,7 +87,7 @@ class Evaluator:
 
     def evalXY(self, **kws):
         queue = Evaluator.getTaskQueue(**kws)
-        xyDf = pd.DataFrame(columns=KEY_COLS + VALUE_COLS)
+        xyDf = pd.DataFrame(columns=['Hash', 'D', 'YK', 'XK', 'YV', 'XV', 'IC', 'Samples', 'XMax', 'XMin', 'XMean', 'XStd', 'XBot1', 'XTop1', 'YBot1', 'YTop1'])
         @funcTools.monitor
         def _evalXY(task):
             d, xk, xv, yk, yv = task.split(':')
@@ -104,33 +99,33 @@ class Evaluator:
                 y = df[ykv].ravel()
                 newRow = dict(zip(['D', 'XK', 'XV', 'YK', 'YV'], task.split(':')))
                 newRow['Hash'] = hash(task) # 计算hash值方便去重
-                newRow['PearsonIC'] = np.corrcoef(x, y)[0][1]
+                newRow['IC'] = np.corrcoef(x, y)[0][1]
+                newRow['Samples'] = df.shape[0]
                 newRow['XMax'] = x.max()
                 newRow['XMin'] = x.min()
                 newRow['XMean'] = x.mean()
                 newRow['XStd'] = x.std()
-                for p in [1, 5, 10, 90, 95, 99]:
-                    newRow[f'XPct{p}'] = np.percentile(x, p)
-                    if p < 50:
-                        newRow[f'YMeanPct{p}'] = y[x <= newRow[f'XPct{p}']].mean()
-                    else:
-                        newRow[f'YMeanPct{p}'] = y[x >= newRow[f'XPct{p}']].mean()
+                newRow['XBot1'] = np.percentile(x, 1)
+                newRow['XTop1'] = np.percentile(x, 99)
+                newRow['YBot1'] = y[x <= newRow['XBot1']].mean()
+                newRow['YTop1'] = y[x >= newRow['XTop1']].mean()
             else:
                 newRow = {}
             return newRow
         while queue:
             task = queue.pop(0)
             xyDf = xyDf.append(_evalXY(task), ignore_index=True)
-        self.xyDf = pd.concat([self.xyDf, xyDf]).drop_duplicates(subset='Hash')
+        self.xyDf = pd.concat([self.xyDf, xyDf], ignore_index=True).drop_duplicates(subset='Hash')
         return xyDf
 
-    def pivot(self, **kws):
+    def pivotXY(self, **kws):
         indexCols = ['XK', 'XV', 'YK', 'YV']
-        valueCols = ['PearsonIC', 'YMeanPct1', 'YMeanPct5', 'YMeanPct10', 'YMeanPct90', 'YMeanPct95', 'YMeanPct99']
-        xyDf = self.xyDf[indexCols + valueCols + ['D']]
+        xyDf = self.xyDf
         for k, v in kws.items():
             xyDf = xyDf.loc[xyDf[k.upper()]==v]
             indexCols.remove(k.upper())
-        pivotDf = xyDf.pivot_table(index=indexCols, values=valueCols)
-        pivotDf['ICStd'] = xyDf.pivot_table(index=indexCols, values=['PearsonIC'])
-        return xyDf.pivot_table(index=indexCols, values=valueCols)
+        pivotDf = xyDf.pivot_table(index=indexCols, values=['IC', 'Samples', 'YBot1', 'YTop1'])
+        icStd = xyDf.pivot_table(index=indexCols, values=['IC'], aggfunc='std')['IC'].ravel()
+        icStd[icStd==0] = float('nan')
+        pivotDf['IR'] = pivotDf['IC'] / icStd
+        return pivotDf
