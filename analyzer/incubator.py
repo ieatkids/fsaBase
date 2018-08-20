@@ -3,13 +3,6 @@ from inspect import getfullargspec
 import pandas as pd
 import numpy as np
 
-# COLUMNS = ['Price', 'Volume', 'BuyVolume', 'SellVolume', 'B1', 'B2', 'B3', 'B4', 'B5', 'A1',
-#           'A2', 'A3', 'A4', 'A5', 'BQ1', 'BQ2', 'BQ3', 'BQ4', 'BQ5', 'AQ1', 'AQ2', 'AQ3', 'AQ4', 'AQ5']
-
-# DIMENTIONS = {'Price': (1, 0), 'Volume': (0, 1), 'BuyVolume': (0, 1), 'SellVolume': (0, 1), 'B1': (1, 0), 'B2': (1, 0), 'B3': (1, 0), 'B4': (1, 0), 'B5': (1, 0), 'A1': (1, 0), 'A2': (1, 0), 'A3': (
-#     1, 0), 'A4': (1, 0), 'A5': (1, 0), 'BQ1': (0, 1), 'BQ2': (0, 1), 'BQ3': (0, 1), 'BQ4': (0, 1), 'BQ5': (0, 1), 'AQ1': (0, 1), 'AQ2': (0, 1), 'AQ3': (0, 1), 'AQ4': (0, 1), 'AQ5': (0, 1)}
-
-
 
 def _splitToken(token): # 
     name = token.split('_')[0]
@@ -20,6 +13,13 @@ def _splitToken(token): #
         except NameError:
             params.append(p)
     return name, params
+
+
+def getArray(df, expr):
+    try:
+        return AlphaTree.fromPostfixExpr(expr).getArray(df)
+    except:
+        return AlphaTree.fromPostfixExpr('Nans').getArray(df)
 
 
 class AlphaTree:    # Alpha的基本格式

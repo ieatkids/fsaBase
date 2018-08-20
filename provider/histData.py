@@ -100,12 +100,13 @@ def classifyRawMdH5(path):  # 分类存放raw data
 
 
 def getMarketDf(k, d, freq=1):    # 统一的market data接口，freq的单位是秒
+    print(f'[Provider] Reading data <{k}> <{d}>...')
     if Path(_getH5Path('market', k, d)).exists(): # 预留，从转存好的数据读取
         marketDf = None
     elif Path(_getH5Path('raw', k, d)).exists():  # 从raw数据读取
         marketDf =  _getMarketDfFromRawH5(k, d, freq=freq)
     else:
-        print(f'Data does not exist.')
+        print(f'[Provider] Data does not exist.')
         marketDf = None
     return marketDf
 
@@ -115,7 +116,7 @@ def getOrderDf(k, d):   # 统一的order data接口
     elif Path(_getH5Path('raw', k, d)).exists(): # 从raw数据读取
         orderDf, _ = _getOrderAndTradeDfFromRawH5(k, d)
     else:
-        print(f'Data does not exist')
+        print(f'[Provider] Data does not exist')
         orderDf = None
     return orderDf
 
@@ -126,7 +127,7 @@ def getTradeDf(k, d):   # 统一的trade data接口
     elif Path(_getH5Path('raw', k, d)).exists(): # 从raw数据读取
         _, tradeDf = _getOrderAndTradeDfFromRawH5(k, d)
     else:
-        print(f'Data does not exist')
+        print(f'[Provider] Data does not exist')
         tradeDf = None
     return tradeDf
 

@@ -1,7 +1,7 @@
 import sqlite3
-import seaborn
 import pandas as pd
 import numpy as np
+import seaborn as sns
 from matplotlib import pyplot as plt
 from itertools import product
 from analyzer import incubator
@@ -15,7 +15,7 @@ class Evaluator:
     def __init__(self, freq=1):
         self.cache = {}
         self.freq = freq
-        self.xyDf = pd.DataFrame()
+        self.xDf = pd.DataFrame()
 
     def toDB(self):
         pass
@@ -48,28 +48,18 @@ class Evaluator:
         dfs = []
         if listTools.isSubset(['d', 'kv'], kws.keys()):
             for d in dateTools.drToD(kws['d']):
-                df_ = pd.DataFrame()
-                for kv in listTools.box(kws['kv']):
-                    k, v = kv.split(':')
-                    marketDf = self.getMarketDf(k, d)
-                    if marketDf is not None:
-                        df_[kv] = incubator.AlphaTree.fromPostfixExpr(v).getArray(marketDf)
-                dfs.append(df_)
+                cols = {kv: incubator.getArray(self.getMarketDf(kv.split(':')[0], d), kv.split(':')[1]) for kv in listTools.box(kws['kv'])}
+                dfs.append(pd.DataFrame(cols))
         elif listTools.isSubset(['d', 'k', 'v'], kws.keys()):
             for d in dateTools.drToD(kws['d']):
-                marketDf = self.getMarketDf(kws['k'], d)
-                df_ = pd.DataFrame()
-                if marketDf is not None:
-                    for v in listTools.box(kws['v']):
-                        df_[v] = incubator.AlphaTree.fromPostfixExpr(v).getArray(marketDf)
-                dfs.append(df_)
+                cols = {v: incubator.getArray(self.getMarketDf(kws['k'], d), v) for v in listTools.box(kws['v'])}
+                dfs.append(pd.DataFrame(cols))
         else:
             pass
         df = pd.concat(dfs).reset_index(drop=True)
         return df
 
-    @staticmethod
-    def getTaskQueue(**kws):
+    def evalX(self, **kws):
         if listTools.isSubset(['d', 'xkv', 'ykv'], kws.keys()):
             d = dateTools.drToD(kws['d'])
             xkv = listTools.box(kws['xkv'])
@@ -83,13 +73,9 @@ class Evaluator:
             queue = list(map(lambda _: ':'.join(_), product(d, k, xv, k, yv)))
         else:
             queue = []
-        return queue
-
-    def evalXY(self, **kws):
-        queue = Evaluator.getTaskQueue(**kws)
-        xyDf = pd.DataFrame(columns=['Hash', 'D', 'YK', 'XK', 'YV', 'XV', 'IC', 'Samples', 'XMax', 'XMin', 'XMean', 'XStd', 'XBot1', 'XTop1', 'YBot1', 'YTop1'])
+        xDf = pd.DataFrame(columns=['Hash', 'D', 'YK', 'XK', 'YV', 'XV', 'IC', 'Samples', 'XMax', 'XMin', 'XMean', 'XStd', 'XBot1', 'XTop1', 'YBot1', 'YTop1'])
         @funcTools.monitor
-        def _evalXY(task):
+        def _loop(task):
             d, xk, xv, yk, yv = task.split(':')
             xkv = f'{xk}:{xv}'
             ykv = f'{yk}:{yv}'
@@ -114,18 +100,62 @@ class Evaluator:
             return newRow
         while queue:
             task = queue.pop(0)
-            xyDf = xyDf.append(_evalXY(task), ignore_index=True)
-        self.xyDf = pd.concat([self.xyDf, xyDf], ignore_index=True).drop_duplicates(subset='Hash')
-        return xyDf
+            xDf = xDf.append(_loop(task), ignore_index=True)
+        self.xDf = pd.concat([self.xDf, xDf], ignore_index=True).drop_duplicates(subset='Hash')
+        return xDf
 
-    def pivotXY(self, **kws):
+    def pivotX(self, **kws):
+        """
+        >>> ev = Evaluator()
+        >>> ev.evalX(d='20180810', k='btcusd.bitstamp', xv='BookPrs', yv='Ret_MidPrc_60')
+        <BLANK LINE>
+        >>> ev.evalX(d='20180809 to 20180811', xkv=['btcusd.bitstamp:NetVol', 'btcusd.bitstamp:MicPrc|MidPrc|div'], ykv='btcusd.bitstamp:MaxDeviRet_MidPrc_60')
+        """
         indexCols = ['XK', 'XV', 'YK', 'YV']
-        xyDf = self.xyDf
+        xDf = self.xDf
         for k, v in kws.items():
-            xyDf = xyDf.loc[xyDf[k.upper()]==v]
+            xDf = xDf.loc[xDf[k.upper()]==v]
             indexCols.remove(k.upper())
-        pivotDf = xyDf.pivot_table(index=indexCols, values=['IC', 'Samples', 'YBot1', 'YTop1'])
-        icStd = xyDf.pivot_table(index=indexCols, values=['IC'], aggfunc='std')['IC'].ravel()
+        pivotDf = xDf.pivot_table(index=indexCols, values=['IC', 'Samples', 'YBot1', 'YTop1'])
+        icStd = xDf.pivot_table(index=indexCols, values=['IC'], aggfunc='std')['IC'].ravel()
         icStd[icStd==0] = float('nan')
         pivotDf['IR'] = pivotDf['IC'] / icStd
         return pivotDf
+
+    def jointPlot(self, **kws):
+        """
+        >>> ev = Evaluator()
+        >>> ev.jointPlot(d='20180810', k='btcusd.bitstamp', v=['MicPrc|MidPrc|div', 'MaxDeviRet_MidPrc_60'])
+        <BLANK LINE>
+        >>> ev.jointPlot(d='20180810', kv=['btceur.bitstamp:MicPrc|MidPrc|div', 'btcusd.bitstamp:MaxDeviRet_MidPrc_60'])
+        """
+        df = self.getDf(**kws).dropna(axis=0, how='any')
+        fig = sns.jointplot(x=df.iloc[:, 0], y=df.iloc[:, 1], kind='hex').fig
+        if kws.get('show', True):
+            fig.show()
+        return fig
+
+    def pctPlot(self, **kws):
+        """
+        >>> ev = Evaluator()
+        >>> ev.pctPlot(d='20180810', k='btcusd.bitstamp', v=['BookPrs', 'MaxDeviRet_MidPrc_60'])
+        <BLANK LINE>
+        >>> ev.pctPlot(d='20180810', kv=['btceur.bitstamp:MicPrc|MidPrc|div', 'btcusd.bitstamp:MaxDeviRet_MidPrc_60'])
+        """
+        df = self.getDf(**kws).dropna(axis=0, how='any')
+        pcts = [1, 5, 10, 90, 95, 99]
+        x = df.iloc[:, 0].ravel()
+        y = df.iloc[:, 1].ravel()
+        fig = plt.figure()
+        bars = list(map(lambda p: y[x <= np.percentile(x, p)].mean() if p < 50 else y[x >= np.percentile(x, p)].mean(), pcts))
+        sns.barplot(x=pcts, y=bars, palette="rocket", ax=fig.add_subplot(211))
+        yBot = y[x <= np.percentile(x, 1)]
+        yTop = y[x >= np.percentile(x, 99)]
+        sns.distplot(yBot, ax=fig.add_subplot(212), color='g')
+        sns.distplot(yTop, ax=fig.add_subplot(212), color='r')
+        if kws.get('show', True):
+            fig.show()
+        return fig
+
+    def distPlot(self, **kws):
+        pass
