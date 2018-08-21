@@ -2,6 +2,7 @@ import sqlite3
 import pandas as pd
 import numpy as np
 import seaborn as sns
+from pathlib2 import Path
 from matplotlib import pyplot as plt
 from itertools import product
 from analyzer import incubator
@@ -11,6 +12,9 @@ from provider import histData
 from utils import dateTools, listTools, funcTools
 
 
+PERFORM_DB_PATH = Path(MD_FOLDER, 'perform.db').as_posix()
+
+
 class Evaluator:
     def __init__(self, freq=1):
         self.cache = {}
@@ -18,7 +22,28 @@ class Evaluator:
         self.xDf = pd.DataFrame()
 
     def toDB(self):
-        pass
+        con = sqlite3.connect(PERFORM_DB_PATH)
+        with con:
+            for yk in self.xDf['YK'].unique().tolist():
+                self.xDf.loc[self.xDf['YK']==yk].to_sql(yk, con, if_exists='replace', index=False, index_label='Hash')
+
+    def fromDB(self, **kws):
+        assert 'yk' in kws or 'xv' in kws, ValueError('pass')
+        con = sqlite3.connect(PERFORM_DB_PATH)
+        with con:
+            tails = []
+            if 'yk' in kws:
+                univ = listTools.box(kws.pop('yk'))
+            else:
+                univ = pd.read_sql("SELECT name FROM sqlite_master")['name'].tolist()
+            if 'd' in kws and 'to' in kws['d']:
+                tails.append(f"d >= {kws['d'].split(' to ')[0]} and d < {kws['d'].split(' to ')[1]}")
+            for k, v in kws.items():
+                tails.append(f"{k} = {v}")
+            sql = f"SELECT * FROM '{}' WHERE " + " AND ".join(tails)
+            xDf = pd.concat(map(lambda yk: pd.read_sql(sql.format(yk), con), univ), ignore_index=True)
+            self.xDf = pd.concat([self.xDf, xDf], ignore_index=True)
+        return xDf
 
     def getMarketDf(self, k, d):
         if (k, d) not in self.cache:
