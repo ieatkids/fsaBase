@@ -35,12 +35,14 @@ class Evaluator:
             if 'yk' in kws:
                 univ = listTools.box(kws.pop('yk'))
             else:
-                univ = pd.read_sql("SELECT name FROM sqlite_master")['name'].tolist()
+                univ = pd.read_sql("SELECT name FROM sqlite_master", con)['name'].tolist()
             if 'd' in kws and 'to' in kws['d']:
                 tails.append(f"d >= {kws['d'].split(' to ')[0]} and d < {kws['d'].split(' to ')[1]}")
             for k, v in kws.items():
-                tails.append(f"{k} = {v}")
-            sql = f"SELECT * FROM '{}' WHERE " + " AND ".join(tails)
+                tails.append(f"{k} = '{v}'")
+            sql = "SELECT * FROM '{}'"
+            if tails:
+                sql += " WHERE " + " AND ".join(tails)
             xDf = pd.concat(map(lambda yk: pd.read_sql(sql.format(yk), con), univ), ignore_index=True)
             self.xDf = pd.concat([self.xDf, xDf], ignore_index=True)
         return xDf
@@ -85,29 +87,30 @@ class Evaluator:
         return df
 
     def evalX(self, **kws):
+        d = dateTools.drToD(kws['d'])
         if listTools.isSubset(['d', 'xkv', 'ykv'], kws.keys()):
-            d = dateTools.drToD(kws['d'])
             xkv = listTools.box(kws['xkv'])
             ykv = listTools.box(kws['ykv'])
             queue = list(map(lambda _: ':'.join(_), product(d, xkv, ykv)))
         elif listTools.isSubset(['d', 'k', 'xv', 'yv'], kws.keys()):
-            d = dateTools.drToD(kws['d'])
             k = listTools.box(kws['k'])
             xv = listTools.box(kws['xv'])
             yv = listTools.box(kws['yv'])
             queue = list(map(lambda _: ':'.join(_), product(d, k, xv, k, yv)))
+        elif 'json' in kws:
+            pass
         else:
             queue = []
         xDf = pd.DataFrame(columns=['Hash', 'D', 'YK', 'XK', 'YV', 'XV', 'IC', 'Samples', 'XMax', 'XMin', 'XMean', 'XStd', 'XBot1', 'XTop1', 'YBot1', 'YTop1'])
         @funcTools.monitor
         def _loop(task):
-            d, xk, xv, yk, yv = task.split(':')
-            xkv = f'{xk}:{xv}'
-            ykv = f'{yk}:{yv}'
-            df = self.getDf(d=d, kv=[xkv, ykv]).dropna(axis=0, how='any')
+            d_, xk_, xv_, yk_, yv_ = task.split(':')
+            xkv_ = f'{xk_}:{xv_}'
+            ykv_ = f'{yk_}:{yv_}'
+            df = self.getDf(d=d_, kv=[xkv_, ykv_]).dropna(axis=0, how='any')
             if df.shape[0] > 10000: # 如数据中NaN太多就没有参考价值。
-                x = df[xkv].ravel()
-                y = df[ykv].ravel()
+                x = df[xkv_].ravel()
+                y = df[ykv_].ravel()
                 newRow = dict(zip(['D', 'XK', 'XV', 'YK', 'YV'], task.split(':')))
                 newRow['Hash'] = hash(task) # 计算hash值方便去重
                 newRow['IC'] = np.corrcoef(x, y)[0][1]
@@ -127,7 +130,35 @@ class Evaluator:
             task = queue.pop(0)
             xDf = xDf.append(_loop(task), ignore_index=True)
         self.xDf = pd.concat([self.xDf, xDf], ignore_index=True).drop_duplicates(subset='Hash')
+        self.toDB()
         return xDf
+
+    def predictY(self, **kws):
+        d = dateTools.drToD(kws['d'])
+        if listTools.isSubset(['d', 'xkv', 'ykv'], kws.keys()):
+            xkv = listTools.box(kws['xkv'])
+            ykv = kws['ykv']
+        elif listTools.isSubset(['d', 'k', 'xv', 'yv'], kws.keys()):
+            k = kws['k']
+            xkv = [f'{k}:{v}' for v in listTools.box(kws['xv'])]
+            ykv = k + ':' + kws['yv']
+        elif 'json' in kws:
+            pass
+        else:
+            d = []
+        
+        # @funcTools.monitor
+        # def _loop():
+            
+
+
+
+        #     df= self.getDf(d=d_, kv=xkv+[ykv]).dropna(axis=0, how='any')
+        #     x = df[xkv]
+        #     y = df[ykv]
+
+
+        # for d_ in d:
 
     def pivotX(self, **kws):
         """
@@ -183,4 +214,13 @@ class Evaluator:
         return fig
 
     def distPlot(self, **kws):
-        pass
+        df = self.getDf(**kws).dropna(axis=0, how='any')
+        fig = sns.distplot(df).figure
+        if kws.get('show', True):
+            fig.show()
+        return fig
+
+
+
+
+
