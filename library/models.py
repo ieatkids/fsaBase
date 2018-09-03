@@ -1,10 +1,11 @@
-from sklearn import linear_model
+from sklearn import linear_model, metrics
+
 
 class Model:
     def __init__(self):
         pass
 
-    def getScore(self, x, y):
+    def getScore(self, yTrue, yPred):
         pass
 
 

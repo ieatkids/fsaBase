@@ -88,7 +88,7 @@ def _getMarketDfFromRawH5(k, d, freq=1):   # 从raw data获取market data，freq
 
 def classifyRawMdH5(path):  # 分类存放raw data
     if Path(path).exists() and Path(path).suffix == '.h5': # 路径为h5文件，则分类存放
-        _, exchange, instrument, d = Path(path).name.split('.')[0].split('_')
+        _, exchange, instrument, _, d = Path(path).name.split('.')[0].split('_')
         newPath = _getH5Path('raw', f'{instrument}.{exchange}', d)
         Path(newPath).parent.mkdir(parents=True, exist_ok=True)
         shutil.move(path, newPath)

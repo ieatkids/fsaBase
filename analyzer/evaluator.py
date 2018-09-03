@@ -25,7 +25,8 @@ class Evaluator:
         con = sqlite3.connect(PERFORM_DB_PATH)
         with con:
             for yk in self.xDf['YK'].unique().tolist():
-                self.xDf.loc[self.xDf['YK']==yk].to_sql(yk, con, if_exists='replace', index=False, index_label='Hash')
+                self.xDf.loc[self.xDf['YK'] == yk].to_sql(
+                    yk, con, if_exists='replace', index=False, index_label='Hash')
 
     def fromDB(self, **kws):
         assert 'yk' in kws or 'xv' in kws, ValueError('pass')
@@ -35,15 +36,18 @@ class Evaluator:
             if 'yk' in kws:
                 univ = listTools.box(kws.pop('yk'))
             else:
-                univ = pd.read_sql("SELECT name FROM sqlite_master", con)['name'].tolist()
+                univ = pd.read_sql("SELECT name FROM sqlite_master", con)[
+                    'name'].tolist()
             if 'd' in kws and 'to' in kws['d']:
-                tails.append(f"d >= {kws['d'].split(' to ')[0]} and d < {kws['d'].split(' to ')[1]}")
+                tails.append(
+                    f"d >= {kws['d'].split(' to ')[0]} and d < {kws['d'].split(' to ')[1]}")
             for k, v in kws.items():
                 tails.append(f"{k} = '{v}'")
             sql = "SELECT * FROM '{}'"
             if tails:
                 sql += " WHERE " + " AND ".join(tails)
-            xDf = pd.concat(map(lambda yk: pd.read_sql(sql.format(yk), con), univ), ignore_index=True)
+            xDf = pd.concat(map(lambda yk: pd.read_sql(
+                sql.format(yk), con), univ), ignore_index=True)
             self.xDf = pd.concat([self.xDf, xDf], ignore_index=True)
         return xDf
 
@@ -51,7 +55,7 @@ class Evaluator:
         if (k, d) not in self.cache:
             self.cache[(k, d)] = histData.getMarketDf(k, d, freq=self.freq)
         return self.cache[(k, d)]
-    
+
     def getDf(self, **kws):
         """
         >>> ev = Evaluator()
@@ -75,11 +79,13 @@ class Evaluator:
         dfs = []
         if listTools.isSubset(['d', 'kv'], kws.keys()):
             for d in dateTools.drToD(kws['d']):
-                cols = {kv: incubator.getArray(self.getMarketDf(kv.split(':')[0], d), kv.split(':')[1]) for kv in listTools.box(kws['kv'])}
+                cols = {kv: incubator.getArray(self.getMarketDf(
+                    kv.split(':')[0], d), kv.split(':')[1]) for kv in listTools.box(kws['kv'])}
                 dfs.append(pd.DataFrame(cols))
         elif listTools.isSubset(['d', 'k', 'v'], kws.keys()):
             for d in dateTools.drToD(kws['d']):
-                cols = {v: incubator.getArray(self.getMarketDf(kws['k'], d), v) for v in listTools.box(kws['v'])}
+                cols = {v: incubator.getArray(self.getMarketDf(
+                    kws['k'], d), v) for v in listTools.box(kws['v'])}
                 dfs.append(pd.DataFrame(cols))
         else:
             pass
@@ -101,18 +107,21 @@ class Evaluator:
             pass
         else:
             queue = []
-        xDf = pd.DataFrame(columns=['Hash', 'D', 'YK', 'XK', 'YV', 'XV', 'IC', 'Samples', 'XMax', 'XMin', 'XMean', 'XStd', 'XBot1', 'XTop1', 'YBot1', 'YTop1'])
+        xDf = pd.DataFrame(columns=['Hash', 'D', 'YK', 'XK', 'YV', 'XV', 'IC', 'Samples',
+                                    'XMax', 'XMin', 'XMean', 'XStd', 'XBot1', 'XTop1', 'YBot1', 'YTop1'])
+
         @funcTools.monitor
         def _loop(task):
             d_, xk_, xv_, yk_, yv_ = task.split(':')
             xkv_ = f'{xk_}:{xv_}'
             ykv_ = f'{yk_}:{yv_}'
             df = self.getDf(d=d_, kv=[xkv_, ykv_]).dropna(axis=0, how='any')
-            if df.shape[0] > 10000: # 如数据中NaN太多就没有参考价值。
+            if df.shape[0] > 10000:  # 如数据中NaN太多就没有参考价值。
                 x = df[xkv_].ravel()
                 y = df[ykv_].ravel()
-                newRow = dict(zip(['D', 'XK', 'XV', 'YK', 'YV'], task.split(':')))
-                newRow['Hash'] = hash(task) # 计算hash值方便去重
+                newRow = dict(
+                    zip(['D', 'XK', 'XV', 'YK', 'YV'], task.split(':')))
+                newRow['Hash'] = hash(task)  # 计算hash值方便去重
                 newRow['IC'] = np.corrcoef(x, y)[0][1]
                 newRow['Samples'] = df.shape[0]
                 newRow['XMax'] = x.max()
@@ -129,36 +138,39 @@ class Evaluator:
         while queue:
             task = queue.pop(0)
             xDf = xDf.append(_loop(task), ignore_index=True)
-        self.xDf = pd.concat([self.xDf, xDf], ignore_index=True).drop_duplicates(subset='Hash')
-        self.toDB()
+        self.xDf = pd.concat(
+            [self.xDf, xDf], ignore_index=True).drop_duplicates(subset='Hash')
+        if kws.get('save', True):
+            self.toDB()
         return xDf
 
     def predictY(self, **kws):
-        d = dateTools.drToD(kws['d'])
-        if listTools.isSubset(['d', 'xkv', 'ykv'], kws.keys()):
+        if 'json' in kws:
+            pass
+        elif listTools.isSubset(['d', 'k', 'xv', 'yv'], kws.keys()):
+            d = dateTools.drToD(kws['d'])
+            xkv = [f'{kws["k"]}:{v}' for v in listTools.box(kws['xv'])]
+            ykv = f'{kws["k"]}:{kws["yv"]}'
+        elif listTools.isSubset(['d', 'xkv', 'ykv'], kws.keys()):
+            d = dateTools.drToD(kws['d'])
             xkv = listTools.box(kws['xkv'])
             ykv = kws['ykv']
-        elif listTools.isSubset(['d', 'k', 'xv', 'yv'], kws.keys()):
-            k = kws['k']
-            xkv = [f'{k}:{v}' for v in listTools.box(kws['xv'])]
-            ykv = k + ':' + kws['yv']
-        elif 'json' in kws:
-            pass
         else:
             d = []
-        
-        # @funcTools.monitor
-        # def _loop():
-            
+            xkv = []
+            ykv = None
 
+        traningDays = kws.get('trainingDays', 10)
+        testingDays = kws.get('testingDays', 1)
+        model = None
+        lastDate = None
 
+        def _loop(model, lastDate):
+            pass
 
-        #     df= self.getDf(d=d_, kv=xkv+[ykv]).dropna(axis=0, how='any')
-        #     x = df[xkv]
-        #     y = df[ykv]
-
-
-        # for d_ in d:
+        while d:
+            curDate = d.pop(0)
+            pass
 
     def pivotX(self, **kws):
         """
@@ -170,12 +182,17 @@ class Evaluator:
         indexCols = ['XK', 'XV', 'YK', 'YV']
         xDf = self.xDf
         for k, v in kws.items():
-            xDf = xDf.loc[xDf[k.upper()]==v]
+            xDf = xDf.loc[xDf[k.upper()] == v]
             indexCols.remove(k.upper())
-        pivotDf = xDf.pivot_table(index=indexCols, values=['IC', 'Samples', 'YBot1', 'YTop1'])
-        icStd = xDf.pivot_table(index=indexCols, values=['IC'], aggfunc='std')['IC'].ravel()
-        icStd[icStd==0] = float('nan')
-        pivotDf['IR'] = pivotDf['IC'] / icStd
+        pivotDf = xDf.pivot_table(index=indexCols, values=[
+                                  'IC', 'Samples', 'YBot1', 'YTop1'])
+        try:
+            icStd = xDf.pivot_table(index=indexCols, values=[
+                                    'IC'], aggfunc='std')['IC'].ravel()
+            icStd[icStd == 0] = float('nan')
+            pivotDf['IR'] = pivotDf['IC'] / icStd
+        except:
+            pivotDf['IR'] = float('nan')
         return pivotDf
 
     def jointPlot(self, **kws):
@@ -203,7 +220,8 @@ class Evaluator:
         x = df.iloc[:, 0].ravel()
         y = df.iloc[:, 1].ravel()
         fig = plt.figure()
-        bars = list(map(lambda p: y[x <= np.percentile(x, p)].mean() if p < 50 else y[x >= np.percentile(x, p)].mean(), pcts))
+        bars = list(map(lambda p: y[x <= np.percentile(x, p)].mean(
+        ) if p < 50 else y[x >= np.percentile(x, p)].mean(), pcts))
         sns.barplot(x=pcts, y=bars, palette="rocket", ax=fig.add_subplot(211))
         yBot = y[x <= np.percentile(x, 1)]
         yTop = y[x >= np.percentile(x, 99)]
@@ -219,8 +237,3 @@ class Evaluator:
         if kws.get('show', True):
             fig.show()
         return fig
-
-
-
-
-
