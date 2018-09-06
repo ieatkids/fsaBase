@@ -12,44 +12,44 @@ from provider import histData
 from utils import dateTools, listTools, funcTools
 
 
-PERFORM_DB_PATH = Path(MD_FOLDER, 'perform.db').as_posix()
+PERFORM_DB_PATH = Path(MD_FOLDER, 'features.db').as_posix()
 
 
 class Evaluator:
     def __init__(self, freq=1):
         self.cache = {}
         self.freq = freq
-        self.xDf = pd.DataFrame()
+        self.featureDf = pd.DataFrame()
 
     def toDB(self):
         con = sqlite3.connect(PERFORM_DB_PATH)
-        with con:
-            for yk in self.xDf['YK'].unique().tolist():
-                self.xDf.loc[self.xDf['YK'] == yk].to_sql(
-                    yk, con, if_exists='replace', index=False, index_label='Hash')
+        for yk in self.featureDf['YK'].unique().tolist():
+            self.featureDf.loc[self.featureDf['YK'] == yk].to_sql(
+                yk, con, if_exists='replace', index=False, index_label='Hash')
+        con.close()
 
     def fromDB(self, **kws):
         assert 'yk' in kws or 'xv' in kws, ValueError('pass')
         con = sqlite3.connect(PERFORM_DB_PATH)
-        with con:
-            tails = []
-            if 'yk' in kws:
-                univ = listTools.box(kws.pop('yk'))
-            else:
-                univ = pd.read_sql("SELECT name FROM sqlite_master", con)[
-                    'name'].tolist()
-            if 'd' in kws and 'to' in kws['d']:
-                tails.append(
-                    f"d >= {kws['d'].split(' to ')[0]} and d < {kws['d'].split(' to ')[1]}")
-            for k, v in kws.items():
-                tails.append(f"{k} = '{v}'")
-            sql = "SELECT * FROM '{}'"
-            if tails:
-                sql += " WHERE " + " AND ".join(tails)
-            xDf = pd.concat(map(lambda yk: pd.read_sql(
-                sql.format(yk), con), univ), ignore_index=True)
-            self.xDf = pd.concat([self.xDf, xDf], ignore_index=True)
-        return xDf
+        tails = []
+        if 'yk' in kws:
+            univ = listTools.box(kws.pop('yk'))
+        else:
+            univ = pd.read_sql("SELECT name FROM sqlite_master", con)[
+                'name'].tolist()
+        if 'd' in kws and 'to' in kws['d']:
+            tails.append(
+                f"d >= {kws['d'].split(' to ')[0]} and d < {kws['d'].split(' to ')[1]}")
+        for k, v in kws.items():
+            tails.append(f"{k} = '{v}'")
+        sql = "SELECT * FROM '{}'"
+        if tails:
+            sql += " WHERE " + " AND ".join(tails)
+        featureDf = pd.concat(map(lambda yk: pd.read_sql(
+            sql.format(yk), con), univ), ignore_index=True)
+        self.featureDf = pd.concat([self.featureDf, featureDf], ignore_index=True)
+        con.close()
+        return featureDf
 
     def getMarketDf(self, k, d):
         if (k, d) not in self.cache:
@@ -92,7 +92,7 @@ class Evaluator:
         df = pd.concat(dfs).reset_index(drop=True)
         return df
 
-    def evalX(self, **kws):
+    def evalFeature(self, **kws):
         d = dateTools.drToD(kws['d'])
         if listTools.isSubset(['d', 'xkv', 'ykv'], kws.keys()):
             xkv = listTools.box(kws['xkv'])
@@ -107,7 +107,7 @@ class Evaluator:
             pass
         else:
             queue = []
-        xDf = pd.DataFrame(columns=['Hash', 'D', 'YK', 'XK', 'YV', 'XV', 'IC', 'Samples',
+        featureDf = pd.DataFrame(columns=['Hash', 'D', 'YK', 'XK', 'YV', 'XV', 'IC', 'Samples',
                                     'XMax', 'XMin', 'XMean', 'XStd', 'XBot1', 'XTop1', 'YBot1', 'YTop1'])
 
         @funcTools.monitor
@@ -137,12 +137,12 @@ class Evaluator:
             return newRow
         while queue:
             task = queue.pop(0)
-            xDf = xDf.append(_loop(task), ignore_index=True)
-        self.xDf = pd.concat(
-            [self.xDf, xDf], ignore_index=True).drop_duplicates(subset='Hash')
+            featureDf = featureDf.append(_loop(task), ignore_index=True)
+        self.featureDf = pd.concat(
+            [self.featureDf, featureDf], ignore_index=True).drop_duplicates(subset='Hash')
         if kws.get('save', True):
             self.toDB()
-        return xDf
+        return featureDf
 
     def predictY(self, **kws):
         if 'json' in kws:
@@ -172,22 +172,22 @@ class Evaluator:
             curDate = d.pop(0)
             pass
 
-    def pivotX(self, **kws):
+    def pivotFeature(self, **kws):
         """
         >>> ev = Evaluator()
-        >>> ev.evalX(d='20180810', k='btcusd.bitstamp', xv='BookPrs', yv='Ret_MidPrc_60')
+        >>> ev.evalFeature(d='20180810', k='btcusd.bitstamp', xv='BookPrs', yv='Ret_MidPrc_60')
         <BLANK LINE>
-        >>> ev.evalX(d='20180809 to 20180811', xkv=['btcusd.bitstamp:NetVol', 'btcusd.bitstamp:MicPrc|MidPrc|div'], ykv='btcusd.bitstamp:MaxDeviRet_MidPrc_60')
+        >>> ev.evalFeature(d='20180809 to 20180811', xkv=['btcusd.bitstamp:NetVol', 'btcusd.bitstamp:MicPrc|MidPrc|div'], ykv='btcusd.bitstamp:MaxDeviRet_MidPrc_60')
         """
         indexCols = ['XK', 'XV', 'YK', 'YV']
-        xDf = self.xDf
+        featureDf = self.featureDf
         for k, v in kws.items():
-            xDf = xDf.loc[xDf[k.upper()] == v]
+            featureDf = featureDf.loc[featureDf[k.upper()] == v]
             indexCols.remove(k.upper())
-        pivotDf = xDf.pivot_table(index=indexCols, values=[
+        pivotDf = featureDf.pivot_table(index=indexCols, values=[
                                   'IC', 'Samples', 'YBot1', 'YTop1'])
         try:
-            icStd = xDf.pivot_table(index=indexCols, values=[
+            icStd = featureDf.pivot_table(index=indexCols, values=[
                                     'IC'], aggfunc='std')['IC'].ravel()
             icStd[icStd == 0] = float('nan')
             pivotDf['IR'] = pivotDf['IC'] / icStd
@@ -195,10 +195,23 @@ class Evaluator:
             pivotDf['IR'] = float('nan')
         return pivotDf
 
+    def linePlot(self, **kws):
+        """
+        >>> ev = Evaluator()
+        >>> ev.linePlot(k='btcusd.bitstamp', d='20180810', v=['Price', 'MA_600', 'EMA_1200'])
+        <BLANK LINE>
+        >>> ev.linePlot(d='20180810', kv=['btcusd.bitstamp:Price', 'btceur.bitstamp:Price'])
+        """
+        df = self.getDf(**kws).dropna(axis=0, how='any')
+        fig = df.plot().figure
+        if kws.get('show', True):
+            plt.show()
+        return fig
+
     def jointPlot(self, **kws):
         """
         >>> ev = Evaluator()
-        >>> ev.jointPlot(d='20180810', k='btcusd.bitstamp', v=['MicPrc|MidPrc|div', 'MaxDeviRet_MidPrc_60'])
+        >>> ev.jointPlot(d='20180810', k='btcusd.bitstamp', v=['MACD_12_24_9', 'Ret_MidPrc_60'])
         <BLANK LINE>
         >>> ev.jointPlot(d='20180810', kv=['btceur.bitstamp:MicPrc|MidPrc|div', 'btcusd.bitstamp:MaxDeviRet_MidPrc_60'])
         """
@@ -213,7 +226,7 @@ class Evaluator:
         >>> ev = Evaluator()
         >>> ev.pctPlot(d='20180810', k='btcusd.bitstamp', v=['BookPrs', 'MaxDeviRet_MidPrc_60'])
         <BLANK LINE>
-        >>> ev.pctPlot(d='20180810', kv=['btceur.bitstamp:MicPrc|MidPrc|div', 'btcusd.bitstamp:MaxDeviRet_MidPrc_60'])
+        >>> ev.pctPlot(d='20180810', kv=['btceur.bitstamp:MicPrc|MidPrc|div', 'btcusd.bitstamp:Ret_MidPrc_60'])
         """
         df = self.getDf(**kws).dropna(axis=0, how='any')
         pcts = [1, 5, 10, 90, 95, 99]

@@ -81,7 +81,9 @@ def _getMarketDfFromRawH5(k, d, freq=1):   # 从raw data获取market data，freq
     marketDf = pd.concat([df1, df2], axis=1)
     marketDf['Time'] = t0 + timedelta(seconds=freq) * np.arange(n)
     marketDf = marketDf[MARKET_FIELDS].reset_index()
-    for name in ['Freq', 'Spread', 'MidPrc', 'MicPrc']: # 添加一些常用的字段
+    marketDf.loc[marketDf['Price']==0] = float('nan')   # Price缺失值用nan填充
+    marketDf['Freq'] = float(freq)
+    for name in ['Spread', 'MidPrc', 'MicPrc']: # 添加一些常用的字段
         marketDf[name] = getattr(functions, name)(marketDf)
     return marketDf
 

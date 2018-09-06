@@ -25,14 +25,8 @@ def getArray(df, expr):
 class AlphaTree:    # Alpha的基本格式
     def __init__(self, value, left=None, right=None):
         self.value = value
-        self.insertLeft(left)
-        self.insertRight(right)
-
-    def insertLeft(self, value):
-        self.left = AlphaTree(value) if isinstance(value, str) else value
-
-    def insertRight(self, value):
-        self.right = AlphaTree(value) if isinstance(value, str) else value
+        self.left = AlphaTree(left) if isinstance(left, str) else left
+        self.right = AlphaTree(right) if isinstance(right, str) else right
 
     def isLeaf(self):
         return all([self.left is None, self.right is None])
